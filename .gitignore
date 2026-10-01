@@ -2,6 +2,7 @@
 *.parquet
 *.csv
 lookups/
+aggregates/
 reference/
 !docs/**
 # Local config (may hold credentials); see malloy-config.example.json

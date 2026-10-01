@@ -7,6 +7,7 @@
 import "itpd.malloy"
 import "country.malloy"
 import "lookups.malloy"
+import "world.malloy"
 
 
 given:
@@ -80,6 +81,7 @@ query: w_industry_suggest is industry -> {
 // the sources AND the givens (controls) into scope.
 export {
   trade, country_profile, country_economy, country, country_year, country_successor, industry, flag_zero_code, wb_income_group,
+  world_region_flows, world_exporters,
   COUNTRY_A, COUNTRY_B, B_SECTOR, B_INDUSTRY, B_YEAR_RANGE,
   COUNTRY, C_SECTOR, C_INDUSTRY, C_YEAR_RANGE,
   W_SECTOR, W_INDUSTRY, W_YEAR_RANGE,

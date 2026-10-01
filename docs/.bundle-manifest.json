@@ -1,6 +1,8 @@
 {
   "dataFiles": [
     "ITPD_E_R2025_usd.parquet",
+    "aggregates/world_exporters.parquet",
+    "aggregates/world_region_flows.parquet",
     "lookups/country.csv",
     "lookups/country_successor.csv",
     "lookups/country_year.csv",

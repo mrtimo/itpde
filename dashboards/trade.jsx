@@ -1429,7 +1429,7 @@ function WorldTab({ givens: allGivens }) {
           <Kpi label="Growth" value={grow == null ? "–" : <Delta value={grow} suffix="/yr" />} sub={grow == null ? "" : `compound annual, ${F.year}–${L.year}`} />
           <Kpi label="Trade within the same region" value={L ? fmtPct(L.intra_regional_share) : "–"} sub={L ? `of cross-border trade, ${L.year}` : ""} />
           <Kpi label="Trade under a trade agreement" value={P ? fmtPct(P.pta_trade_share) : "–"} sub={P ? `share in ${P.year} (agreement data ends 2019)` : "agreement data covers 1986–2019"} />
-          <Kpi label="Exporting economies" value={L ? fmtNum(L.exporters) : "–"} sub={L ? `with positive exports, ${L.year}` : ""} />
+          <Kpi label="Exporting economies" value={L && ey === L.year ? fmtNum(exporters.filter((r) => r.year === ey && r.usd_m > 0).length) : "–"} sub={L ? `with positive exports, ${L.year}` : ""} />
         </div>
 
         <div className="tx-grid">
@@ -1518,7 +1518,8 @@ function WorldTab({ givens: allGivens }) {
 // All three views live in ONE dashboard so the browser downloads the data once
 // per visit. A tab is mounted the first time it is opened and then kept mounted
 // (hidden when inactive), so its filters, results and scroll position survive
-// switching away and back. Each tab reads only its own givens (B_/C_/W_ plus
+// switching away and back; after the first view loads, the other tabs warm up
+// in the background. Each tab reads only its own givens (B_/C_/W_ plus
 // its country pickers), so a change on one tab never re-runs another tab.
 
 const TABS = [
@@ -1556,6 +1557,14 @@ export default function Dashboard({ givens }) {
   useEffect(() => {
     if (!probe.loading && (probe.rows.length || probe.error)) setReady(true);
   }, [probe.loading, probe.rows.length, probe.error]);
+
+  // Warm-up: once the first view has its data, mount the other tabs (hidden) so
+  // their queries run in the background and they are ready when clicked.
+  useEffect(() => {
+    if (!ready) return undefined;
+    const t = setTimeout(() => setVisited(new Set(TABS.map((x) => x.id))), 1500);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   const go = (id) => {
     setTab(id);

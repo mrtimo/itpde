@@ -1,0 +1,105 @@
+##! experimental.access_modifiers
+
+// Pre-aggregated cross-border trade for world-level views (built by
+// scripts/build_aggregates.sql from the full trade table). Much smaller than the
+// row-level table, so world totals are fast to compute in the browser.
+
+import "country.malloy"
+import "lookups.malloy"
+
+#(doc) Cross-border trade between UN regions by year and industry, with the pieces needed for trade-agreement and distance shares. Positive flows only; money rounded to the nearest $1,000.
+source: world_region_flows is duckdb.table('aggregates/world_region_flows.parquet')
+  include {
+    public:
+      #(doc) Calendar year
+      `year`
+
+      #(doc) ITPD-E industry code (1-170)
+      industry_id
+
+      #(doc) Broad sector: Agriculture, Mining and Energy, Manufacturing, or Services
+      broad_sector
+
+      #(doc) ITPD-E industry description
+      industry_descr
+
+      #(doc) UN M49 region of the exporter ('Other' when the code has no region)
+      exporter_region
+
+      #(doc) UN M49 region of the importer ('Other' when the code has no region)
+      importer_region
+
+      #(doc) Cross-border trade in US dollars
+      trade_usd
+
+      #(doc) Trade in US dollars between pairs with an active preferential trade agreement (gravity data, to 2019)
+      pta_trade_usd
+
+      #(doc) Trade in US dollars for pairs whose agreement status is known (denominator for the agreement share)
+      pta_known_trade_usd
+
+      #(doc) Trade-weighted average population-weighted distance in km for this cell (to 2019)
+      avg_distance_km
+
+      #(doc) Trade in US dollars for pairs with a known distance (weight for avg_distance_km)
+      distance_known_trade_usd
+  }
+  extend {
+    dimension:
+      #(doc) True when exporter and importer are in the same UN region
+      is_intra_regional is exporter_region = importer_region
+
+    measure:
+      #(doc) Cross-border trade in US dollars
+      # currency
+      total_trade_usd is sum(trade_usd)
+
+      #(doc) Share of cross-border trade that stays within the same UN region
+      # percent
+      intra_regional_share is sum(trade_usd) { where: exporter_region = importer_region } / nullif(sum(trade_usd), 0)
+
+      #(doc) Share of cross-border trade between partners with an active preferential trade agreement (to 2019)
+      # percent
+      pta_trade_share is sum(pta_trade_usd) / nullif(sum(pta_known_trade_usd), 0)
+
+      #(doc) Average distance in km travelled by a dollar of cross-border trade (to 2019)
+      trade_weighted_distance_km is sum(avg_distance_km * distance_known_trade_usd) / nullif(sum(distance_known_trade_usd), 0)
+  }
+
+#(doc) Cross-border exports by exporting country, year and industry, joined to the country lookup and the World Bank income group in that year. Positive flows only; money rounded to the nearest $1,000.
+source: world_exporters is duckdb.table('aggregates/world_exporters.parquet')
+  include {
+    public:
+      #(doc) Calendar year
+      `year`
+
+      #(doc) ITPD-E industry code (1-170)
+      industry_id
+
+      #(doc) Broad sector: Agriculture, Mining and Energy, Manufacturing, or Services
+      broad_sector
+
+      #(doc) ITPD-E industry description
+      industry_descr
+
+      #(doc) ISO 3-letter code of the exporting country
+      exporter_iso3
+
+      #(doc) Cross-border exports in US dollars
+      trade_usd
+  }
+  extend {
+    #(doc) Exporting country (name, UN region, current World Bank classification)
+    join_one: exporter is country on exporter_iso3 = exporter.iso3
+
+    #(doc) Exporter's World Bank income group in that year
+    join_one: exporter_income is wb_income_group on exporter_iso3 = exporter_income.iso3 and `year` = exporter_income.gni_year
+
+    measure:
+      #(doc) Cross-border exports in US dollars
+      # currency
+      total_trade_usd is sum(trade_usd)
+
+      #(doc) Number of distinct exporting countries
+      exporter_count is count(exporter_iso3)
+  }

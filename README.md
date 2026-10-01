@@ -18,12 +18,14 @@ and each tab keeps its own filters while you move between tabs.
 |---|---|
 | `trade_flows.malloy`, `country.malloy`, `lookups.malloy`, `gravity.malloy` | Base sources (one per table), every field documented with `#(doc)` |
 | `itpd.malloy` | Joined sources: `trade`, `country_profile`, `country_economy` |
+| `world.malloy` | Pre-aggregated world tables (`world_region_flows`, `world_exporters`) used by *The world* tab |
 | `givens.malloy` | Dashboard filters (givens) and their suggestion queries |
 | `index.malloy` | Export surface (all 11 sources) |
 | `dashboards/trade.malloy` | Every query the explorer runs |
 | `dashboards/trade.jsx` | Generated dashboard component — edit `dashboard_src/`, then `python3 dashboard_src/build.py` |
 | `dashboard_src/` | Dashboard UI source (shared kit + one file per tab) |
 | `scripts/get_data.sh` | Download the data from Hugging Face for local work |
+| `scripts/build_aggregates.sql` | Rebuild the small World-tab tables in `aggregates/` (run with `duckdb`) |
 | `scripts/build_site.sh` | Build `docs/` (GitHub Pages) with data served from Hugging Face |
 | `docs/` | The published static site |
 

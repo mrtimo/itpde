@@ -18,3 +18,6 @@ export { country_year, country_successor, industry, flag_zero_code, wb_income_gr
 import { trade_flows } from './trade_flows.malloy'
 export { trade_flows }
 
+
+import { world_region_flows, world_exporters } from './world.malloy'
+export { world_region_flows, world_exporters }
