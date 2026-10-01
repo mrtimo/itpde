@@ -1,0 +1,131 @@
+##! experimental.access_modifiers
+
+import "trade_flows.malloy"
+import "country.malloy"
+import "lookups.malloy"
+import "gravity.malloy"
+
+#(doc) Main trade analysis source: ITPD-E trade flows joined to exporter/importer country attributes (ISO, UN M49 regions, World Bank income groups by year), industry, zero-flag meaning, and USITC gravity variables (country-year and country-pair-year, 1986-2019 only). Use international_trade_usd for cross-border trade; total_trade_usd includes domestic flows.
+source: trade is trade_flows extend {
+  #(doc) Exporting country: ISO codes, UN region, development groups, current World Bank classification
+  join_one: exporter is country on exporter_iso3 = exporter.iso3
+
+  #(doc) Importing country: ISO codes, UN region, development groups, current World Bank classification
+  join_one: importer is country on importer_iso3 = importer.iso3
+
+  #(doc) Industry lookup (description and broad sector)
+  join_one: industry_info is industry on industry_id = industry_info.industry_id
+
+  #(doc) Meaning of the flag_zero code
+  join_one: zero_flag is flag_zero_code on flag_zero = zero_flag.flag_zero
+
+  #(doc) Exporter's World Bank income group in the trade year (1987-2023)
+  join_one: exporter_income is wb_income_group
+    on exporter_iso3 = exporter_income.iso3 and `year` = exporter_income.gni_year
+
+  #(doc) Importer's World Bank income group in the trade year (1987-2023)
+  join_one: importer_income is wb_income_group
+    on importer_iso3 = importer_income.iso3 and `year` = importer_income.gni_year
+
+  #(doc) Exporter's gravity attributes in the trade year: WTO/EU membership, GDP, population (1986-2019)
+  join_one: exporter_gravity is dgd_country_year
+    on exporter_iso3_dynamic = exporter_gravity.dynamic_code and `year` = exporter_gravity.`year`
+
+  #(doc) Importer's gravity attributes in the trade year: WTO/EU membership, GDP, population (1986-2019)
+  join_one: importer_gravity is dgd_country_year
+    on importer_iso3_dynamic = importer_gravity.dynamic_code and `year` = importer_gravity.`year`
+
+  #(doc) Country-pair gravity attributes in the trade year: distance, border, language, trade agreements, sanctions (1986-2019)
+  join_one: pair is dgd_pair_year
+    on exporter_iso3_dynamic = pair.dynamic_code_o
+    and importer_iso3_dynamic = pair.dynamic_code_d
+    and `year` = pair.`year`
+
+  dimension:
+    #(doc) Exporter display name (most recent ITPD-E name for the code)
+    exporter_country is exporter.country_name
+
+    #(doc) Importer display name (most recent ITPD-E name for the code)
+    importer_country is importer.country_name
+
+    #(doc) Exporter's UN M49 region
+    exporter_region is exporter.region
+
+    #(doc) Importer's UN M49 region
+    importer_region is importer.region
+
+    #(doc) Exporter's World Bank income group in the trade year
+    exporter_income_group is exporter_income.income_group
+
+    #(doc) Importer's World Bank income group in the trade year
+    importer_income_group is importer_income.income_group
+
+    #(doc) True when exporter and importer are in the same UN M49 region
+    is_intra_regional is exporter.region = importer.region
+
+    #(doc) True when both countries were WTO members in the trade year (1986-2019)
+    both_wto_members is exporter_gravity.member_wto and importer_gravity.member_wto
+
+    #(doc) True when both countries were EU members in the trade year (1986-2019)
+    both_eu_members is exporter_gravity.member_eu and importer_gravity.member_eu
+
+    #(doc) True when the pair had an active preferential trade agreement in the trade year (1986-2019)
+    has_trade_agreement is pair.agree_pta
+
+  measure:
+    #(doc) Cross-border trade value in US dollars between pairs with an active preferential trade agreement (1986-2019)
+    # currency
+    pta_trade_usd is sum(trade_usd) { where: exporter_iso3 != importer_iso3 and pair.agree_pta = true }
+
+    #(doc) Share of cross-border trade between pairs with an active preferential trade agreement (1986-2019)
+    # percent
+    pta_trade_share is pta_trade_usd
+      / nullif(international_trade_usd { where: pair.agree_pta is not null }, 0)
+
+    #(doc) Cross-border trade value in US dollars between countries sharing a land border (1986-2019)
+    # currency
+    contiguous_trade_usd is sum(trade_usd) { where: exporter_iso3 != importer_iso3 and pair.contiguity = true }
+
+    #(doc) Average distance in km travelled by a dollar of cross-border trade (trade-weighted population-weighted distance, 1986-2019)
+    trade_weighted_distance_km is source.sum(trade_usd * pair.distance_km) { where: exporter_iso3 != importer_iso3 }
+      / nullif(sum(trade_usd) { where: exporter_iso3 != importer_iso3 and pair.distance_km is not null }, 0)
+
+    #(doc) Cross-border trade value in US dollars within the same UN M49 region
+    # currency
+    intra_regional_trade_usd is sum(trade_usd) { where: exporter_iso3 != importer_iso3 and exporter.region = importer.region }
+
+    #(doc) Share of cross-border trade that stays within the same UN M49 region
+    # percent
+    intra_regional_share is intra_regional_trade_usd / nullif(international_trade_usd, 0)
+}
+
+#(doc) Country profile: one row per country code, linked to its yearly ITPD-E names and DGD codes, World Bank income-group history, DGD gravity attributes by year, and successor states. Use for country-level questions that do not involve trade flows.
+source: country_profile is country extend {
+  #(doc) ITPD-E names and DGD dynamic codes by year
+  join_many: yearly_codes is country_year on iso3 = yearly_codes.iso3
+
+  #(doc) World Bank income group history by year
+  join_many: income_history is wb_income_group on iso3 = income_history.iso3
+
+  #(doc) DGD gravity attributes by year (GDP, population, WTO/EU membership)
+  join_many: gravity_years is dgd_country_year on iso3 = gravity_years.iso3
+
+  #(doc) Successor states, for former countries and reporting aggregates
+  join_many: successors is country_successor on iso3 = successors.iso3
+}
+
+#(doc) Country-year economics: DGD gravity attributes per country and year, joined to the country lookup and the World Bank income group in that year. Use for GDP, population and membership trends (1986-2019).
+source: country_economy is dgd_country_year extend {
+  #(doc) Country lookup (ISO, UN region, current World Bank classification)
+  join_one: country_info is country on iso3 = country_info.iso3
+
+  #(doc) World Bank income group in that year
+  join_one: income is wb_income_group on iso3 = income.iso3 and `year` = income.gni_year
+
+  dimension:
+    #(doc) UN M49 region
+    region is country_info.region
+
+    #(doc) World Bank income group in that year
+    income_group is income.income_group
+}

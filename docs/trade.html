@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>International Trade Explorer · International Trade Explorer</title>
+<link rel="stylesheet" href="./assets/site.css">
+
+</head>
+<body>
+<div id="root"></div>
+<script>
+window.__DASHBOARD__ = {"name":"trade","query":"trade_explorer","title":"International Trade Explorer","description":"Explore international trade: bilateral flows, country profiles and the world picture (USITC ITPD-E, 1986-2023).","entryFile":"dashboards/trade.malloy"};
+// Given SPECS (label/type/default/suggest) are introspected from the model's
+// given: declarations at BUILD time — the runtime reads them from here to draw
+// controls and seed initial values. Without them there are no controls and
+// every given starts empty.
+window.__GIVENS__ = [{"name":"COUNTRY_A","type":"filter\u003cstring\u003e","filterType":"string","default":"United States","tags":{"label":"Country A","control":"select"},"suggest":{"dimension":"country_name","query":"country_suggest"}},{"name":"COUNTRY_B","type":"filter\u003cstring\u003e","filterType":"string","default":"China","tags":{"label":"Country B","control":"select"},"suggest":{"dimension":"country_name","query":"country_suggest"}},{"name":"B_SECTOR","type":"filter\u003cstring\u003e","filterType":"string","default":"","tags":{"label":"Sector","control":"select"},"suggest":{"dimension":"broad_sector","query":"sector_suggest"}},{"name":"B_INDUSTRY","type":"filter\u003cstring\u003e","filterType":"string","default":"","tags":{"label":"Industry","control":"select"},"suggest":{"dimension":"industry_descr","query":"b_industry_suggest"}},{"name":"B_YEAR_RANGE","type":"filter\u003cnumber\u003e","filterType":"number","default":"[2000 to 2023]","tags":{"label":"Years","range_min":1986,"range_max":2023}},{"name":"COUNTRY","type":"filter\u003cstring\u003e","filterType":"string","default":"United States","tags":{"label":"Country","control":"select"},"suggest":{"dimension":"country_name","query":"country_suggest"}},{"name":"C_SECTOR","type":"filter\u003cstring\u003e","filterType":"string","default":"","tags":{"label":"Sector","control":"select"},"suggest":{"dimension":"broad_sector","query":"sector_suggest"}},{"name":"C_INDUSTRY","type":"filter\u003cstring\u003e","filterType":"string","default":"","tags":{"label":"Industry","control":"select"},"suggest":{"dimension":"industry_descr","query":"c_industry_suggest"}},{"name":"C_YEAR_RANGE","type":"filter\u003cnumber\u003e","filterType":"number","default":"[2000 to 2023]","tags":{"label":"Years","range_min":1986,"range_max":2023}},{"name":"W_SECTOR","type":"filter\u003cstring\u003e","filterType":"string","default":"","tags":{"label":"Sector","control":"select"},"suggest":{"dimension":"broad_sector","query":"sector_suggest"}},{"name":"W_INDUSTRY","type":"filter\u003cstring\u003e","filterType":"string","default":"","tags":{"label":"Industry","control":"select"},"suggest":{"dimension":"industry_descr","query":"w_industry_suggest"}},{"name":"W_YEAR_RANGE","type":"filter\u003cnumber\u003e","filterType":"number","default":"[2000 to 2023]","tags":{"label":"Years","range_min":1986,"range_max":2023}}];
+// __INITIAL_GIVENS__ is NOT set here on purpose: the entry bundle sets it from
+// location.search using shared/givens-url, the same encoder the dev server uses.
+// An inline copy is what drifted last time (it stripped the dollar-sign prefix
+// the runtime keys off, so every shareable link fell back to defaults).
+</script>
+<script src="./assets/model-files.js"></script>
+<script type="module" src="./assets/trade.js"></script>
+</body>
+</html>

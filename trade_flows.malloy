@@ -1,0 +1,100 @@
+##! experimental.access_modifiers
+
+#(doc) ITPD-E Release 2025 (USITC International Trade and Production Database for Estimation). One row per exporter x importer x industry x year, 1986-2023. Includes domestic flows (exporter = importer), which are production for the home market, so use international_trade_usd for cross-border trade.
+source: trade_flows is duckdb.table('ITPD_E_R2025_usd.parquet')
+  extend { rename: trade_usd is trade }
+  include {
+    public:
+      #(doc) ISO 3-letter code of the exporting country (ITPD-E uses a few non-ISO codes such as SVU, BLX, ETF, FRE)
+      exporter_iso3
+
+      #(doc) USITC Dynamic Gravity Dataset (DGD) country code of the exporter; changes when a country's borders or name change (e.g. DEU.X, ZAR, BUR). Joins to the DGD tables together with year
+      exporter_iso3_dynamic
+
+      #(doc) Exporter name as published in ITPD-E for that year (e.g. West Germany, Zaire)
+      exporter_name
+
+      #(doc) ISO 3-letter code of the importing country
+      importer_iso3
+
+      #(doc) USITC DGD dynamic country code of the importer
+      importer_iso3_dynamic
+
+      #(doc) Importer name as published in ITPD-E for that year
+      importer_name
+
+      #(doc) ITPD-E broad sector: Agriculture, Mining and Energy, Manufacturing, or Services
+      broad_sector
+
+      #(doc) ITPD-E industry code (1-170)
+      industry_id
+
+      #(doc) ITPD-E industry description
+      industry_descr
+
+      #(doc) Calendar year of the trade flow (1986-2023)
+      `year`
+
+      #(doc) Trade flow value in whole current US dollars (source value in millions of USD, multiplied by 1,000,000 and rounded to the nearest dollar)
+      trade_usd
+
+      #(doc) Mirror-data indicator from ITPD-E. 0 = reported by the reporter; values above 0 mean mirror (partner-reported) data was used. The data dictionary describes it as 0/1 but values range 0-407
+      flag_mirror
+
+      #(doc) Zero-trade flag: p = positive trade, r = raw data contained zero, u = missing in source (unknown, assigned zero)
+      flag_zero
+  }
+  extend {
+    dimension:
+      #(doc) True when exporter and importer are the same country, i.e. domestic production sold at home rather than cross-border trade
+      is_domestic is exporter_iso3 = importer_iso3
+
+      #(doc) True when the flow has a positive reported value (flag_zero = 'p')
+      has_positive_trade is flag_zero = 'p'
+
+      #(doc) True when partner-reported mirror data was used for this flow (flag_mirror > 0)
+      is_mirrored is flag_mirror > 0
+
+    measure:
+      #(doc) Sum of trade value in US dollars across all flows, including domestic flows
+      # currency
+      total_trade_usd is sum(trade_usd)
+
+      #(doc) Cross-border trade value in US dollars (excludes flows where exporter = importer)
+      # currency
+      international_trade_usd is sum(trade_usd) { where: exporter_iso3 != importer_iso3 }
+
+      #(doc) Domestic trade value in US dollars (exporter = importer): production sold in the home market. Complete only through 2021 in R2025; 2022 is partial and 2023 nearly empty
+      # currency
+      domestic_trade_usd is sum(trade_usd) { where: exporter_iso3 = importer_iso3 }
+
+      #(doc) Share of total trade value that is domestic (exporter = importer). Only meaningful through 2021 (domestic data incomplete for 2022-2023)
+      # percent
+      domestic_share is domestic_trade_usd / nullif(total_trade_usd, 0)
+
+      #(doc) Number of exporter x importer x industry x year rows
+      flow_count is count()
+
+      #(doc) Number of rows with positive trade (flag_zero = 'p')
+      positive_flow_count is count() { where: flag_zero = 'p' }
+
+      #(doc) Share of rows with positive trade
+      # percent
+      positive_flow_share is positive_flow_count / nullif(flow_count, 0)
+
+      #(doc) Number of rows where partner-reported mirror data was used (flag_mirror > 0)
+      mirrored_flow_count is count() { where: flag_mirror > 0 }
+
+      #(doc) Trade value in US dollars from flows that used mirror data
+      # currency
+      mirrored_trade_usd is sum(trade_usd) { where: flag_mirror > 0 }
+
+      #(doc) Number of distinct exporting countries
+      exporter_count is count(exporter_iso3)
+
+      #(doc) Number of distinct importing countries
+      importer_count is count(importer_iso3)
+
+      #(doc) Number of distinct ITPD-E industries
+      industry_count is count(industry_id)
+  }

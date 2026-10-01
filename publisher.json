@@ -1,0 +1,5 @@
+{
+  "name": "itpd_e",
+  "version": "0.0.1",
+  "description": "USITC ITPD-E R2025 trade and production flows (1986-2023) in whole US dollars, linked to ISO/UN M49 country codes, World Bank income groups, and USITC Dynamic Gravity Dataset variables."
+}

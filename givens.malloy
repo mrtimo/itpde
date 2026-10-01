@@ -1,0 +1,87 @@
+##! experimental.givens
+##! experimental.access_modifiers
+
+// Shared dashboard filters. Each dashboard bare-imports this file so its
+// controls render; the dashboard's own query decides which givens it applies.
+
+import "itpd.malloy"
+import "country.malloy"
+import "lookups.malloy"
+
+
+given:
+  // Bilateral tab
+  # label="Country A" control=select suggest { query=country_suggest dimension=country_name }
+  COUNTRY_A :: filter<string> is f'United States'
+  # label="Country B" control=select suggest { query=country_suggest dimension=country_name }
+  COUNTRY_B :: filter<string> is f'China'
+  # label="Sector" control=select suggest { query=sector_suggest dimension=broad_sector }
+  B_SECTOR :: filter<string> is f''
+  # label="Industry" control=select suggest { query=b_industry_suggest dimension=industry_descr }
+  B_INDUSTRY :: filter<string> is f''
+  # label="Years" range_min=1986 range_max=2023
+  B_YEAR_RANGE :: filter<number> is f'[2000 to 2023]'
+
+  // Country tab
+  # label="Country" control=select suggest { query=country_suggest dimension=country_name }
+  COUNTRY :: filter<string> is f'United States'
+  # label="Sector" control=select suggest { query=sector_suggest dimension=broad_sector }
+  C_SECTOR :: filter<string> is f''
+  # label="Industry" control=select suggest { query=c_industry_suggest dimension=industry_descr }
+  C_INDUSTRY :: filter<string> is f''
+  # label="Years" range_min=1986 range_max=2023
+  C_YEAR_RANGE :: filter<number> is f'[2000 to 2023]'
+
+  // World tab
+  # label="Sector" control=select suggest { query=sector_suggest dimension=broad_sector }
+  W_SECTOR :: filter<string> is f''
+  # label="Industry" control=select suggest { query=w_industry_suggest dimension=industry_descr }
+  W_INDUSTRY :: filter<string> is f''
+  # label="Years" range_min=1986 range_max=2023
+  W_YEAR_RANGE :: filter<number> is f'[2000 to 2023]'
+
+#(doc) Country names for the country pickers (every code in ITPD-E, by display name)
+query: country_suggest is country -> {
+  group_by: country_name
+  order_by: country_name
+}
+
+#(doc) Broad sectors for the sector picker
+query: sector_suggest is industry -> {
+  group_by: broad_sector
+  order_by: broad_sector
+}
+
+#(doc) Industries for the Bilateral tab's industry picker; narrows to that tab's sector
+query: b_industry_suggest is industry -> {
+  where: broad_sector ~ $B_SECTOR
+  group_by: industry_descr
+  aggregate: first_id is min(industry_id)
+  order_by: first_id
+}
+
+#(doc) Industries for the Country tab's industry picker; narrows to that tab's sector
+query: c_industry_suggest is industry -> {
+  where: broad_sector ~ $C_SECTOR
+  group_by: industry_descr
+  aggregate: first_id is min(industry_id)
+  order_by: first_id
+}
+
+#(doc) Industries for the World tab's industry picker; narrows to that tab's sector
+query: w_industry_suggest is industry -> {
+  where: broad_sector ~ $W_SECTOR
+  group_by: industry_descr
+  aggregate: first_id is min(industry_id)
+  order_by: first_id
+}
+
+// Re-export the model so a dashboard's single bare import of this file brings
+// the sources AND the givens (controls) into scope.
+export {
+  trade, country_profile, country_economy, country, country_year, country_successor, industry, flag_zero_code, wb_income_group,
+  COUNTRY_A, COUNTRY_B, B_SECTOR, B_INDUSTRY, B_YEAR_RANGE,
+  COUNTRY, C_SECTOR, C_INDUSTRY, C_YEAR_RANGE,
+  W_SECTOR, W_INDUSTRY, W_YEAR_RANGE,
+  country_suggest, sector_suggest, b_industry_suggest, c_industry_suggest, w_industry_suggest
+}

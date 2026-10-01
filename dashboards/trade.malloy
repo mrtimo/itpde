@@ -1,0 +1,278 @@
+##! experimental.givens
+##! experimental.access_modifiers
+
+// International Trade Explorer — ONE dashboard with three tabs (Bilateral,
+// Country, World). Keeping everything on one page means the data is loaded
+// once per visit, and each tab keeps its own filters (b_/c_/w_ queries read
+// the B_/C_/W_ givens) when you switch away and back.
+// Values are returned in millions of US dollars (usd_m) as floats.
+
+import "../givens.malloy"
+
+// The dashboard's entry query. The runtime renders a control for each given
+// the entry query references, so this small query touches every tab's givens.
+// Each tab's real queries (b_/c_/w_ below) apply them for real.
+#" Explore international trade: bilateral flows, country profiles and the world picture (USITC ITPD-E, 1986-2023).
+# artifact { title="International Trade Explorer" }
+query: trade_explorer is industry -> {
+  where:
+    broad_sector ~ $B_SECTOR or broad_sector ~ $C_SECTOR or broad_sector ~ $W_SECTOR or true,
+    industry_descr ~ $B_INDUSTRY or industry_descr ~ $C_INDUSTRY or industry_descr ~ $W_INDUSTRY or true,
+    industry_id ~ $B_YEAR_RANGE or industry_id ~ $C_YEAR_RANGE or industry_id ~ $W_YEAR_RANGE or true,
+    broad_sector ~ $COUNTRY_A or broad_sector ~ $COUNTRY_B or broad_sector ~ $COUNTRY or true
+  aggregate: industry_count
+}
+
+// ════════ Bilateral tab ════════
+// Bilateral Trade Explorer — trade between Country A and Country B over time.
+// Values are returned in millions of US dollars (usd_m) as floats so the
+// component can format and chart them without 64-bit integer strings.
+// Both directions of the A <-> B relationship, with the dashboard filters applied.
+source: pair_trade is trade extend {
+  where:
+    (exporter_country ~ $COUNTRY_A and importer_country ~ $COUNTRY_B)
+      or (exporter_country ~ $COUNTRY_B and importer_country ~ $COUNTRY_A),
+    `year` ~ $B_YEAR_RANGE,
+    broad_sector ~ $B_SECTOR,
+    industry_descr ~ $B_INDUSTRY
+
+  dimension:
+    // 'AB' = Country A exports to Country B; 'BA' = Country B exports to Country A
+    direction is pick 'AB' when exporter_country ~ $COUNTRY_A else 'BA'
+}
+
+#" Exports in each direction between two countries, by year.
+query: b_flows_by_year is pair_trade -> {
+  group_by: `year`, direction
+  aggregate: usd_m is total_trade_usd / 1e6
+  order_by: `year`, direction
+}
+
+// Composition of each direction's exports by broad sector.
+query: b_sector_by_year is pair_trade -> {
+  group_by: `year`, direction, broad_sector
+  aggregate: usd_m is total_trade_usd / 1e6
+  order_by: `year`, direction, broad_sector
+}
+
+// Industry detail for each direction and year (the component keeps the latest year).
+query: b_industries_by_year is pair_trade -> {
+  where: trade_usd > 0
+  group_by: `year`
+  nest: industries is {
+    group_by: direction, industry_descr, broad_sector
+    aggregate: usd_m is total_trade_usd / 1e6
+  }
+  order_by: `year`
+}
+
+// How important is each partner? Each country's exports to the world (excluding
+// domestic sales) and the part that goes to the other country.
+query: b_partner_share_by_year is trade -> {
+  where:
+    exporter_country ~ $COUNTRY_A or exporter_country ~ $COUNTRY_B,
+    exporter_iso3 != importer_iso3,
+    `year` ~ $B_YEAR_RANGE,
+    broad_sector ~ $B_SECTOR,
+    industry_descr ~ $B_INDUSTRY
+  group_by:
+    `year`
+    direction is pick 'AB' when exporter_country ~ $COUNTRY_A else 'BA'
+  aggregate:
+    world_m is international_trade_usd / 1e6
+    partner_m is international_trade_usd {
+      where:
+        (exporter_country ~ $COUNTRY_A and importer_country ~ $COUNTRY_B)
+          or (exporter_country ~ $COUNTRY_B and importer_country ~ $COUNTRY_A)
+    } / 1e6
+  order_by: `year`, direction
+}
+
+// Gravity-model facts about the pair from the USITC Dynamic Gravity Dataset
+// (1986-2019): distance, border, language, colonial ties, trade agreements,
+// WTO membership and each economy's GDP.
+query: b_pair_facts_by_year is trade -> {
+  where:
+    exporter_country ~ $COUNTRY_A,
+    importer_country ~ $COUNTRY_B,
+    `year` <= 2019
+  group_by: `year`
+  aggregate:
+    distance_km is max(pair.distance_km)
+    contiguity is max(pick 1 when pair.contiguity else 0)
+    common_language is max(pick 1 when pair.common_language else 0)
+    colony_ever is max(pick 1 when pair.colony_ever else 0)
+    agree_pta is max(pick 1 when pair.agree_pta else 0)
+    agree_fta is max(pick 1 when pair.agree_fta else 0)
+    agree_cu is max(pick 1 when pair.agree_cu else 0)
+    a_wto is max(pick 1 when exporter_gravity.member_wto else 0)
+    b_wto is max(pick 1 when importer_gravity.member_wto else 0)
+    a_gdp_bn is max(exporter_gravity.gdp_wdi_cur_usd) / 1e9
+    b_gdp_bn is max(importer_gravity.gdp_wdi_cur_usd) / 1e9
+  order_by: `year`
+}
+
+// Region and income group of each selected country (header chips).
+query: b_pair_countries is country -> {
+  where: country_name ~ $COUNTRY_A or country_name ~ $COUNTRY_B
+  group_by:
+    country_name
+    side is pick 'A' when country_name ~ $COUNTRY_A else 'B'
+    region
+    sub_region
+    wb_income_group_current
+}
+
+// ════════ Country tab ════════
+// Country Trade Profile — where one country's exports go and where its
+// Every flow that touches the selected country (as exporter or importer),
+// with the dashboard filters applied. Domestic rows are kept so the export
+// orientation measure can compare exports with home-market sales.
+source: country_trade is trade extend {
+  where:
+    exporter_country ~ $COUNTRY or importer_country ~ $COUNTRY,
+    `year` ~ $C_YEAR_RANGE,
+    broad_sector ~ $C_SECTOR,
+    industry_descr ~ $C_INDUSTRY
+
+  dimension:
+    // The other country in the flow
+    partner is pick importer_country when exporter_country ~ $COUNTRY else exporter_country
+    partner_region is pick importer.region when exporter_country ~ $COUNTRY else exporter.region
+
+  measure:
+    exports_m is international_trade_usd { where: exporter_country ~ $COUNTRY } / 1e6
+    imports_m is international_trade_usd { where: importer_country ~ $COUNTRY } / 1e6
+}
+
+#" Exports, imports and home-market sales of the selected country, by year.
+query: c_totals_by_year is country_trade -> {
+  group_by: `year`
+  aggregate:
+    exports_m
+    imports_m
+    domestic_m is domestic_trade_usd { where: exporter_country ~ $COUNTRY } / 1e6
+    export_partners is count(importer_iso3) {
+      where: exporter_country ~ $COUNTRY and exporter_iso3 != importer_iso3 and trade_usd > 0
+    }
+  order_by: `year`
+}
+
+// Exports by the UN region of the destination, by year.
+query: c_exports_by_region_year is country_trade -> {
+  where: exporter_country ~ $COUNTRY, exporter_iso3 != importer_iso3
+  group_by:
+    `year`
+    region is importer.region ?? 'Other'
+  aggregate: usd_m is international_trade_usd / 1e6
+  order_by: `year`, region
+}
+
+// Every partner, by year: exports to it, imports from it, and gravity
+// variables for the exporter -> partner pair (distance, partner GDP; to 2019).
+// One row per year with the partners nested (keeps under the 5,000-row cap).
+query: c_partners_by_year is country_trade -> {
+  where: exporter_iso3 != importer_iso3
+  group_by: `year`
+  nest: partners is {
+    group_by: partner, partner_region
+    aggregate:
+      exports_m
+      imports_m
+      distance_km is max(pair.distance_km)
+      partner_gdp_bn is max(
+        pick importer_gravity.gdp_wdi_cur_usd when exporter_country ~ $COUNTRY
+        else exporter_gravity.gdp_wdi_cur_usd
+      ) / 1e9
+  }
+  order_by: `year`
+}
+
+// Exports and imports by industry, by year (the component keeps the latest year).
+query: c_industries_by_year is country_trade -> {
+  where: exporter_iso3 != importer_iso3, trade_usd > 0
+  group_by: `year`
+  nest: industries is {
+    group_by: broad_sector, industry_descr
+    aggregate: exports_m, imports_m
+  }
+  order_by: `year`
+}
+
+// Facts about the selected country for the header.
+query: c_country_facts is country -> {
+  where: country_name ~ $COUNTRY
+  group_by:
+    country_name
+    iso3
+    region
+    sub_region
+    wb_income_group_current
+    ldc
+    lldc
+    sids
+}
+
+// ════════ World tab ════════
+// World Trade at a Glance — global cross-border trade over time.
+// Values are returned in millions of US dollars (usd_m) as floats.
+// Cross-border flows only (domestic sales excluded), with the dashboard filters.
+source: world_trade is trade extend {
+  where:
+    exporter_iso3 != importer_iso3,
+    `year` ~ $W_YEAR_RANGE,
+    broad_sector ~ $W_SECTOR,
+    industry_descr ~ $W_INDUSTRY
+}
+
+#" World cross-border trade by broad sector and year.
+query: w_sectors_by_year is world_trade -> {
+  group_by: `year`, broad_sector
+  aggregate: usd_m is international_trade_usd / 1e6
+  order_by: `year`, broad_sector
+}
+
+// Headline structure of world trade by year: how much stays inside a region
+// and how much moves under a preferential trade agreement (agreements: to 2019).
+query: w_structure_by_year is world_trade -> {
+  group_by: `year`
+  aggregate:
+    usd_m is international_trade_usd / 1e6
+    intra_regional_share
+    pta_trade_share
+    trade_weighted_distance_km
+    exporters is count(exporter_iso3) { where: trade_usd > 0 }
+  order_by: `year`
+}
+
+// Region-to-region flows by year (exporter region x importer region).
+query: w_region_flows_by_year is world_trade -> {
+  group_by:
+    `year`
+    from_region is exporter.region ?? 'Other'
+    to_region is importer.region ?? 'Other'
+  aggregate: usd_m is international_trade_usd / 1e6
+  order_by: `year`, from_region, to_region
+}
+
+// Exports by country and year, for the leaderboard (top exporters per year).
+query: w_exporters_by_year is world_trade -> {
+  group_by: `year`
+  nest: exporters is {
+    group_by: country is exporter_country, region is exporter.region
+    aggregate: usd_m is international_trade_usd / 1e6
+  }
+  order_by: `year`
+}
+
+// Exports by exporter income group in the trade year (World Bank, from 1987).
+query: w_income_by_year is world_trade -> {
+  where: exporter_income.income_group is not null
+  group_by:
+    `year`
+    income_group is exporter_income.income_group
+  aggregate:
+    usd_m is international_trade_usd / 1e6
+    income_rank is min(exporter_income.income_group_rank)
+  order_by: `year`, income_rank
+}

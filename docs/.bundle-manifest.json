@@ -1,0 +1,13 @@
+{
+  "dataFiles": [
+    "ITPD_E_R2025_usd.parquet",
+    "lookups/country.csv",
+    "lookups/country_successor.csv",
+    "lookups/country_year.csv",
+    "lookups/dgd_country_year.csv",
+    "lookups/dgd_pair_year.parquet",
+    "lookups/flag_zero.csv",
+    "lookups/industry.csv",
+    "lookups/wb_income_group.csv"
+  ]
+}

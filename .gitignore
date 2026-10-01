@@ -1,0 +1,16 @@
+# Data lives on Hugging Face (https://huggingface.co/datasets/24601p/itpde) — fetch with scripts/get_data.sh
+*.parquet
+*.csv
+lookups/
+reference/
+!docs/**
+# Local config (may hold credentials); see malloy-config.example.json
+malloy-config.json
+# Local tooling
+.claude/
+.agents/
+.vscode/
+.mcp.json
+.DS_Store
+*.duckdb
+*.wal

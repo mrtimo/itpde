@@ -1,0 +1,181 @@
+##! experimental.access_modifiers
+
+// USITC Dynamic Gravity Dataset (DGD) release 2.1, limited to the country codes and years
+// (1986-2019) that overlap ITPD-E. DGD does not cover 2020-2023.
+
+#(doc) DGD country attributes by year: WTO/GATT/EU membership, geography, population, GDP, capital and polity. One row per DGD dynamic code and year (1986-2019).
+source: dgd_country_year is duckdb.table('lookups/dgd_country_year.csv')
+  include {
+    public:
+      #(doc) DGD dynamic country code (joins to ITPD-E exporter/importer_iso3_dynamic)
+      dynamic_code
+
+      #(doc) Calendar year
+      `year`
+
+      #(doc) ISO 3-letter country code
+      iso3
+
+      #(doc) Country name in DGD
+      dgd_country_name
+
+      #(doc) Member of GATT in this year
+      member_gatt
+
+      #(doc) Member of the WTO in this year
+      member_wto
+
+      #(doc) Member of the European Union in this year
+      member_eu
+
+      #(doc) Country is landlocked
+      landlocked
+
+      #(doc) Country is an island
+      island
+
+      #(doc) DGD geographic region (e.g. europe, south_america, middle_east)
+      dgd_region
+
+      #(doc) Latitude of the country's centroid
+      lat
+
+      #(doc) Longitude of the country's centroid
+      lng
+
+      #(doc) Population in millions (Penn World Table; available through 2017)
+      pop_millions
+
+      #(doc) Polity IV political regime score, -10 (autocracy) to +10 (democracy)
+      polity
+
+      #(doc) GDP in current US dollars (World Bank WDI; available through 2018)
+      gdp_wdi_cur_usd
+
+      #(doc) GDP in constant US dollars (World Bank WDI; available through 2018)
+      gdp_wdi_const_usd
+
+      #(doc) GDP per capita in current US dollars (World Bank WDI; available through 2018)
+      gdp_wdi_cap_cur_usd
+
+      #(doc) GDP per capita in constant US dollars (World Bank WDI; available through 2018)
+      gdp_wdi_cap_const_usd
+
+      #(doc) GDP in millions of current US dollars (Penn World Table; available through 2017)
+      gdp_pwt_cur_musd
+
+      #(doc) GDP in millions of constant US dollars (Penn World Table; available through 2017)
+      gdp_pwt_const_musd
+
+      #(doc) Capital stock in millions of current US dollars (Penn World Table; available through 2017)
+      capital_pwt_cur_musd
+
+      #(doc) Capital stock in millions of constant US dollars (Penn World Table; available through 2017)
+      capital_pwt_const_musd
+  }
+  extend {
+    measure:
+      #(doc) Number of country-year rows
+      country_year_count is count()
+
+      #(doc) Total GDP in current US dollars (WDI, through 2018). Sum over countries within a single year; returns 0 for years with no GDP data
+      # currency
+      total_gdp_usd is sum(gdp_wdi_cur_usd)
+
+      #(doc) Total population in millions (through 2017). Sum over countries within a single year; returns 0 for years with no population data
+      total_population_millions is sum(pop_millions)
+
+      #(doc) Number of country-years where the country was a WTO member
+      wto_member_count is count() { where: member_wto = true }
+  }
+
+#(doc) DGD country-pair attributes by year: distance, shared border, common language, colonial ties, trade agreements, hostility and sanctions. One row per origin dynamic code x destination dynamic code x year (1986-2019); includes domestic pairs.
+source: dgd_pair_year is duckdb.table('lookups/dgd_pair_year.parquet')
+  include {
+    public:
+      #(doc) Calendar year
+      `year`
+
+      #(doc) DGD dynamic code of the origin (exporter)
+      dynamic_code_o
+
+      #(doc) DGD dynamic code of the destination (importer)
+      dynamic_code_d
+
+      #(doc) Population-weighted distance between the two countries in kilometres
+      distance_km
+
+      #(doc) Countries share a land border
+      contiguity
+
+      #(doc) Residents of the two countries speak at least one common language
+      common_language
+
+      #(doc) The two countries have ever been in a colonial relationship
+      colony_ever
+
+      #(doc) Origin was ever a colony of the destination
+      colony_of_destination_ever
+
+      #(doc) Destination was ever a colony of the origin
+      colony_of_origin_ever
+
+      #(doc) The two countries had at least one common colonizer
+      common_colonizer
+
+      #(doc) The two countries share a common legal origin
+      common_legal_origin
+
+      #(doc) Pair is in at least one active preferential trade agreement (any type)
+      agree_pta
+
+      #(doc) Pair is in at least one active preferential trade agreement covering goods
+      agree_pta_goods
+
+      #(doc) Pair is in at least one active preferential trade agreement covering services
+      agree_pta_services
+
+      #(doc) Pair is in at least one free trade agreement
+      agree_fta
+
+      #(doc) Pair is in at least one economic integration agreement
+      agree_eia
+
+      #(doc) Pair is in at least one customs union
+      agree_cu
+
+      #(doc) Pair is in at least one partial scope agreement
+      agree_psa
+
+      #(doc) Pair is in at least one free trade agreement and at least one economic integration agreement
+      agree_fta_eia
+
+      #(doc) Pair is in at least one customs union and at least one economic integration agreement
+      agree_cu_eia
+
+      #(doc) Origin's hostility level toward the destination (Correlates of War militarized dispute scale, 0 = no dispute, up to 5 = war)
+      hostility_level_o
+
+      #(doc) Destination's hostility level toward the origin (Correlates of War militarized dispute scale, 0 = no dispute, up to 5 = war)
+      hostility_level_d
+
+      #(doc) A threat of sanction exists between the two countries
+      sanction_threat
+
+      #(doc) A threat of trade sanction exists between the two countries
+      sanction_threat_trade
+
+      #(doc) A sanction is imposed between the two countries
+      sanction_imposition
+
+      #(doc) A trade sanction is imposed between the two countries
+      sanction_imposition_trade
+  }
+  extend {
+    measure:
+      #(doc) Number of country-pair-year rows
+      pair_year_count is count()
+
+      #(doc) Number of country-pair-years covered by a preferential trade agreement
+      pta_pair_count is count() { where: agree_pta = true }
+  }

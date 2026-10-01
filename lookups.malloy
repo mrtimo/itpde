@@ -1,0 +1,113 @@
+##! experimental.access_modifiers
+
+// Small lookup tables that sit around the trade data.
+
+#(doc) ITPD-E country code by year: maps ISO3 + year to the DGD dynamic code and the name ITPD-E used that year.
+source: country_year is duckdb.table('lookups/country_year.csv')
+  include {
+    public:
+      #(doc) ISO 3-letter country code
+      iso3
+
+      #(doc) Calendar year
+      `year`
+
+      #(doc) USITC DGD dynamic country code in effect that year
+      iso3_dynamic
+
+      #(doc) Country name ITPD-E used that year
+      `name`
+  }
+  extend {
+    measure:
+      #(doc) Number of country-year rows
+      country_year_count is count()
+  }
+
+#(doc) Successor states of former and aggregate country codes (e.g. SVU -> 15 post-Soviet states). Use to aggregate successors for comparisons over time.
+source: country_successor is duckdb.table('lookups/country_successor.csv')
+  include {
+    public:
+      #(doc) ISO 3-letter code of the former country or reporting aggregate
+      iso3
+
+      #(doc) ISO 3-letter code of a successor country
+      successor_iso3
+  }
+  extend {
+    measure:
+      #(doc) Number of successor countries
+      successor_count is count()
+  }
+
+#(doc) ITPD-E industry list: 170 industries grouped into 4 broad sectors.
+source: industry is duckdb.table('lookups/industry.csv')
+  include {
+    public:
+      #(doc) ITPD-E industry code (1-170)
+      industry_id
+
+      #(doc) ITPD-E industry description
+      industry_descr
+
+      #(doc) Broad sector: Agriculture, Mining and Energy, Manufacturing, or Services
+      broad_sector
+  }
+  extend {
+    primary_key: industry_id
+
+    measure:
+      #(doc) Number of industries
+      industry_count is count()
+  }
+
+#(doc) Meaning of the ITPD-E flag_zero codes.
+source: flag_zero_code is duckdb.table('lookups/flag_zero.csv')
+  include {
+    public:
+      #(doc) Zero-trade flag code: p, r, or u
+      flag_zero
+
+      #(doc) Description of the zero-trade flag
+      flag_zero_descr
+  }
+  extend {
+    primary_key: flag_zero
+  }
+
+#(doc) World Bank income group by country and year (from the World Bank OGHIST file). Keyed by the GNI data year, which matches the trade year; the classification is published in the following World Bank fiscal year.
+source: wb_income_group is duckdb.table('lookups/wb_income_group.csv')
+  include {
+    public:
+      #(doc) ISO 3-letter country code, mapped to ITPD-E codes (World Bank SUN -> SVU, YUGf -> YUG, YUG -> SCG)
+      iso3
+
+      #(doc) Country code as published by the World Bank
+      wb_code
+
+      #(doc) Year of the GNI per capita data the classification is based on; join to trade year
+      gni_year
+
+      #(doc) World Bank fiscal year in which this classification was used for lending (gni_year + 2)
+      fiscal_year
+
+      #(doc) Income group code: L, LM, UM, H
+      income_group_code
+
+      #(doc) Income group: Low income, Lower middle income, Upper middle income, High income
+      income_group
+  }
+  extend {
+    dimension:
+      #(doc) Sort order for income groups, low (1) to high (4)
+      income_group_rank is income_group_code ?
+        pick 1 when 'L'
+        pick 2 when 'LM'
+        pick 3 when 'UM'
+        pick 4 when 'H'
+        else null
+
+    measure:
+      #(doc) Number of country-year classifications
+      classification_count is count()
+  }

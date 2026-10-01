@@ -1,0 +1,82 @@
+##! experimental.access_modifiers
+
+#(doc) One row per country code used in ITPD-E (257 codes). Combines ISO 3166-1 codes, former ISO 3166-3 codes, UN M49 regions and development groups, and the World Bank's current (FY2025) classification.
+source: country is duckdb.table('lookups/country.csv')
+  include {
+    public:
+      #(doc) ISO 3-letter country code as used in ITPD-E (key)
+      iso3
+
+      #(doc) Display name: the most recent name ITPD-E uses for this code (e.g. United States, Korea, South, Soviet Union)
+      country_name
+
+      #(doc) ISO 2-letter country code (null for non-ISO codes)
+      iso2
+
+      #(doc) ISO 3166-1 numeric code, also used by UN Comtrade (null for non-ISO codes)
+      iso_numeric
+
+      #(doc) Official English country name per ISO/UN
+      iso_name
+
+      #(doc) Common short display name (Unicode CLDR)
+      short_name
+
+      #(doc) Whether the code is a current ISO 3166-1 code, a former ISO 3166-3 code, or a non-ISO code used by ITPD-E
+      iso_status
+
+      #(doc) ISO 3166-3 four-letter code for a former country (e.g. SUHH for the USSR)
+      iso3166_3_code
+
+      #(doc) First year the former ISO code was valid
+      iso_valid_from
+
+      #(doc) Last year the former ISO code was valid
+      iso_valid_to
+
+      #(doc) UN M49 region (Africa, Americas, Asia, Europe, Oceania). For former countries, taken from their successor state(s)
+      region
+
+      #(doc) UN M49 sub-region (e.g. Western Europe, Sub-Saharan Africa)
+      sub_region
+
+      #(doc) UN M49 intermediate region (e.g. Caribbean, Eastern Africa); only set for some sub-regions
+      intermediate_region
+
+      #(doc) UN Least Developed Country
+      ldc
+
+      #(doc) UN Landlocked Developing Country
+      lldc
+
+      #(doc) UN Small Island Developing State
+      sids
+
+      #(doc) Continent code (AF, AN, AS, EU, NA, OC, SA)
+      continent
+
+      #(doc) First year this code appears in ITPD-E
+      first_year_in_data
+
+      #(doc) Last year this code appears in ITPD-E
+      last_year_in_data
+
+      #(doc) World Bank region from the current (FY2025) classification
+      wb_region
+
+      #(doc) World Bank income group from the current (FY2025) classification; use wb_income_group joined by year for history
+      wb_income_group_current
+
+      #(doc) World Bank lending category (IDA, IBRD, Blend) from the current classification
+      wb_lending_category
+
+      #(doc) Notes on manual assignments, e.g. regions inherited from successor states
+      note
+  }
+  extend {
+    primary_key: iso3
+
+    measure:
+      #(doc) Number of countries
+      country_count is count()
+  }
