@@ -8,7 +8,8 @@
 #      files on Hugging Face and delete the local copies from docs/;
 #   3. the home page forwards straight to the explorer.
 #
-# The browser downloads each data file ONCE per visit; the explorer is a single
+# The browser downloads each data file ONCE per visit (the trade table is the
+# 81 MB web copy on Hugging Face, not the 150 MB full table); the explorer is a single
 # page with tabs, so switching views never reloads the data.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -30,6 +31,9 @@ s = mf.read_text()
 m = re.search(r"__TABLE_FILES__ = (\{.*?\})", s)
 files = json.loads(m.group(1))
 remote = {k: f"{base}/{k}" for k in files}
+# The site reads the smaller web copy of the trade table (positive flows only,
+# trade rounded to $1,000, unused columns empty) — 81 MB instead of 150 MB.
+remote["ITPD_E_R2025_usd.parquet"] = f"{base}/web/ITPD_E_R2025_web.parquet"
 s = s.replace(m.group(0), "__TABLE_FILES__ = " + json.dumps(remote))
 mf.write_text(s)
 # remove the local data copies (the data lives on Hugging Face)

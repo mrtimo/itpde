@@ -38,6 +38,14 @@ malloyyo dashboard dev              # http://localhost:4173/?d=trade
 
 To publish changes: `scripts/build_site.sh`, then commit and push `docs/`.
 
+## Data the site loads
+
+The live site downloads `web/ITPD_E_R2025_web.parquet` (81 MB) from Hugging Face
+instead of the full 150 MB table: positive flows only, `trade` rounded to the
+nearest $1,000 (values under $1,000 kept exact), and the unused `flag_mirror` /
+name columns left empty. Local development (`scripts/get_data.sh`) uses the full
+table.
+
 ## Data notes
 
 Trade values are in whole current US dollars (ITPD-E reports millions; values
