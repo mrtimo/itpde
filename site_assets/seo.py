@@ -3,7 +3,7 @@
 
 - index.html IS the explorer (no redirect); trade.html is kept for old links.
 - Title, description, canonical URL, Open Graph / Twitter tags, favicon.
-- schema.org JSON-LD (WebApplication, author, based on the ITPD-E dataset).
+- schema.org JSON-LD (WebApplication, based on the ITPD-E dataset).
 - A real, readable intro inside #root that doubles as the loading screen;
   React replaces it as soon as the app mounts.
 - robots.txt, sitemap.xml, favicon, social preview image.
@@ -15,7 +15,6 @@ TITLE = "International Trade Explorer | Interactive World Trade Data, 1986–202
 DESC = ("Free interactive dashboard of world trade for students and the public: compare any two countries, "
         "see where a country's exports go, and test the gravity model with USITC ITPD-E data, 1986–2023.")
 ITPDE = "https://www.usitc.gov/data/gravity/gravity_portal_itpd_e"
-AUTHOR_URL = "https://www.linkedin.com/in/4timolsen/"
 
 root = pathlib.Path(__file__).resolve().parent.parent
 docs = root / "docs"
@@ -35,10 +34,6 @@ jsonld = {
     "image": SITE + "og-image.png",
     "keywords": "international trade, bilateral trade, gravity model, trade balance, exports, imports, ITPD-E, USITC, economics education",
     "audience": {"@type": "EducationalAudience", "educationalRole": "student"},
-    "author": {
-        "@type": "Person", "name": "Tim Olsen", "url": AUTHOR_URL, "sameAs": [AUTHOR_URL],
-        "affiliation": {"@type": "CollegeOrUniversity", "name": "Gonzaga University"},
-    },
     "isBasedOn": {
         "@type": "Dataset",
         "name": "International Trade and Production Database for Estimation (ITPD-E), release 2025",
@@ -51,7 +46,6 @@ jsonld = {
 head = f"""<meta name="description" content="{html.escape(DESC)}">
 <link rel="canonical" href="{SITE}">
 <meta name="robots" content="index, follow">
-<meta name="author" content="Tim Olsen">
 <meta name="theme-color" content="#0b1d33">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -100,7 +94,6 @@ intro = f"""<main class="seo-intro"><div class="wrap">
 </ul>
 <h2>Data</h2>
 <p>Built on the U.S. International Trade Commission's <a href="{ITPDE}">International Trade and Production Database for Estimation (ITPD-E)</a>, release 2025: 87.5 million exporter–importer–industry–year flows for 170 industries, 1986–2023, linked to the USITC Dynamic Gravity Dataset, World Bank income groups and UN regions. Data: <a href="https://huggingface.co/datasets/24601p/itpde">Hugging Face</a> · Code: <a href="https://github.com/mrtimo/itpde">GitHub</a>.</p>
-<p>Built by <a href="{AUTHOR_URL}">Tim Olsen</a> · Gonzaga School of Business.</p>
 </div></main>"""
 
 def seo_page(src: str) -> str:
