@@ -1780,9 +1780,6 @@ const TAB_CSS = `
   background:color-mix(in srgb,var(--hero1) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.08)}
 .tx-tabs .brand{display:flex;flex-direction:column;line-height:1.2;margin-right:14px;white-space:nowrap}
 .tx-tabs .brand .name{color:#fff;font-weight:700;letter-spacing:-.01em}
-.tx-tabs .brand .credit{font-size:11px;color:#8ea6c4;margin-top:2px}
-.tx-tabs .brand .credit a{color:#c9d6e6;text-decoration:underline;text-decoration-color:rgba(201,214,230,.45);text-underline-offset:2px}
-.tx-tabs .brand .credit a:hover{color:#fff;text-decoration-color:#fff}
 .tx-tabs button{font:inherit;font-size:13.5px;color:#c9d6e6;background:transparent;border:1px solid transparent;border-radius:999px;
   padding:6px 14px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
 .tx-tabs button small{font-size:11px;color:#8ea6c4}
@@ -1841,13 +1838,6 @@ export default function Dashboard({ givens }) {
       <nav className="tx-tabs" aria-label="Views">
         <div className="brand">
           <span className="name">International Trade Explorer</span>
-          <span className="credit">
-            Built by{" "}
-            <a href="https://www.linkedin.com/in/4timolsen/" target="_blank" rel="noopener noreferrer">
-              Tim Olsen
-            </a>{" "}
-            · Gonzaga School of Business
-          </span>
         </div>
         {TABS.map((t) => (
           <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => go(t.id)} aria-current={tab === t.id ? "page" : undefined}>
