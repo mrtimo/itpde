@@ -1,0 +1,14 @@
+// Cloudflare deployment for https://tradeexplorer.org
+// Serves the static site built by scripts/build_site.sh (docs/) as a Worker
+// with static assets. Deploy with:  npx wrangler deploy
+{
+  "name": "tradeexplorer",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./docs"
+  },
+  "routes": [
+    { "pattern": "tradeexplorer.org", "custom_domain": true },
+    { "pattern": "www.tradeexplorer.org", "custom_domain": true }
+  ]
+}

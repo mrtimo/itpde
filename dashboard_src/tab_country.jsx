@@ -41,7 +41,7 @@ function ols2(rows) {
 
 const C_KEYS = ['COUNTRY', 'C_SECTOR', 'C_INDUSTRY', 'C_YEAR_RANGE'];
 
-function CountryTab({ givens: allGivens }) {
+function CountryTab({ givens: allGivens, onCompare }) {
   const givens = useMemo(() => pickGivens(allGivens, C_KEYS), [JSON.stringify(pickGivens(allGivens, C_KEYS))]);
   const p = usePalette();
   const C = useGiven("COUNTRY");
@@ -200,26 +200,6 @@ function CountryTab({ givens: allGivens }) {
           },
         },
         {
-          transform: [{ filter: "datum.kind === 'pt'" }],
-          mark: { type: "circle", opacity: 0.75, stroke: p.surface, strokeWidth: 1.5 },
-          encoding: {
-            x: { field: "x", type: "quantitative", scale: { type: "log", nice: false }, title: "Distance to partner (km, log scale)", axis: { tickCount: 6, format: "~s" } },
-            y: {
-              field: "y", type: "quantitative", scale: { type: "log" }, title: "Exports to partner (log scale)",
-              axis: { labelExpr: "datum.value >= 1e6 ? '$' + format(datum.value/1e6, '~g') + 'T' : datum.value >= 1000 ? '$' + format(datum.value/1000, '~g') + 'B' : datum.value >= 1 ? '$' + format(datum.value, '~g') + 'M' : '$' + format(datum.value*1000, '~g') + 'K'" },
-            },
-            size: { field: "gdp", type: "quantitative", scale: { type: "sqrt", range: [16, 900] }, legend: null },
-            color: { value: p.A },
-            tooltip: [
-              { field: "partner", title: "Partner" },
-              { field: "region", title: "Region" },
-              { field: "y", title: "Exports ($ millions)", format: ",.0f" },
-              { field: "x", title: "Distance (km)", format: ",.0f" },
-              { field: "gdp", title: "Partner GDP ($ billions)", format: ",.0f" },
-            ],
-          },
-        },
-        {
           transform: [{ filter: "datum.kind === 'pt' && datum.rank <= 8" }],
           mark: { type: "text", align: "left", dx: 7, dy: -7, fontSize: 11.5, fontWeight: 600, color: p.ink2 },
           encoding: {
@@ -227,6 +207,46 @@ function CountryTab({ givens: allGivens }) {
             y: { field: "y", type: "quantitative", scale: { type: "log" } },
             text: { field: "partner" },
           },
+        },
+        {
+          // Circles + their hover label share one layer so the hover selection is in scope.
+          transform: [
+            { filter: "datum.kind === 'pt'" },
+            { calculate: "datum.partner + ' · $' + (datum.y >= 10000 ? format(datum.y / 1000, ',.0f') : datum.y >= 100 ? format(datum.y / 1000, ',.1f') : format(datum.y / 1000, ',.2f')) + 'B exports'", as: "hoverTxt" },
+          ],
+          encoding: {
+            x: { field: "x", type: "quantitative", scale: { type: "log", nice: false }, title: "Distance to partner (km, log scale)", axis: { tickCount: 6, format: "~s" } },
+            y: {
+              field: "y", type: "quantitative", scale: { type: "log" }, title: "Exports to partner (log scale)",
+              axis: { labelExpr: "datum.value >= 1e6 ? '$' + format(datum.value/1e6, '~g') + 'T' : datum.value >= 1000 ? '$' + format(datum.value/1000, '~g') + 'B' : datum.value >= 1 ? '$' + format(datum.value, '~g') + 'M' : '$' + format(datum.value*1000, '~g') + 'K'" },
+            },
+          },
+          layer: [
+            {
+              params: [{ name: "gh", select: { type: "point", fields: ["partner"], nearest: true, on: "pointermove", clear: "pointerout" } }],
+              mark: { type: "circle", cursor: "pointer" },
+              encoding: {
+                size: { field: "gdp", type: "quantitative", scale: { type: "sqrt", range: [16, 900] }, legend: null },
+                color: { value: p.A },
+                opacity: { condition: { param: "gh", empty: true, value: 0.78 }, value: 0.35 },
+                stroke: { condition: { param: "gh", empty: false, value: p.ink }, value: p.surface },
+                strokeWidth: { condition: { param: "gh", empty: false, value: 2 }, value: 1.5 },
+              },
+            },
+            // Hover label: partner name and exports in billions (a halo pass, then the text).
+            ...[{ stroke: p.surface, strokeWidth: 5, strokeJoin: "round" }, {}].map((halo) => ({
+              mark: {
+                type: "text", dy: -12, fontSize: 13, fontWeight: 700, color: p.ink, clip: true, ...halo,
+                // Label to the right of the circle, or to the left near the right edge.
+                align: { expr: "datum.x > 9000 ? 'right' : 'left'" },
+                dx: { expr: "datum.x > 9000 ? -12 : 12" },
+              },
+              encoding: {
+                text: { field: "hoverTxt" },
+                opacity: { condition: { param: "gh", empty: false, value: 1 }, value: 0 },
+              },
+            })),
+          ],
         },
       ],
     }),
@@ -299,20 +319,20 @@ function CountryTab({ givens: allGivens }) {
             {regions.loading && !regionRows.length ? <Skel h={250} /> : regionRows.length ? <VegaChart spec={regSpec} data={regionRows} /> : <Empty />}
           </Card>
 
-          <Card w={6} title={`Top export destinations${py ? ` (${py})` : ""}`} sub={`Share of ${name}'s exports, with the change since ${pFirst ?? "the first year"}. Click a country to open its profile.`}>
+          <Card w={6} title={`Top export destinations${py ? ` (${py})` : ""}`} sub={`Share of ${name}'s exports, with the change since ${pFirst ?? "the first year"}. Click a country to see what the two trade.`}>
             {partners.loading && !partnersLatest.length ? (
               <Skel h={380} />
             ) : partnersLatest.length ? (
-              <BarList rows={topList("exports_m")} onPick={(r) => setCountry(r.key)} pickHint={(r) => `Open ${r.label}'s profile`} />
+              <BarList rows={topList("exports_m")} onPick={(r) => onCompare(name, r.key)} pickHint={(r) => `Compare ${name} and ${r.label} in Two countries`} />
             ) : (
               <Empty />
             )}
           </Card>
-          <Card w={6} title={`Top import sources${py ? ` (${py})` : ""}`} sub={`Share of ${name}'s imports, with the change since ${pFirst ?? "the first year"}. Click a country to open its profile.`}>
+          <Card w={6} title={`Top import sources${py ? ` (${py})` : ""}`} sub={`Share of ${name}'s imports, with the change since ${pFirst ?? "the first year"}. Click a country to see what the two trade.`}>
             {partners.loading && !partnersLatest.length ? (
               <Skel h={380} />
             ) : partnersLatest.length ? (
-              <BarList rows={topList("imports_m")} onPick={(r) => setCountry(r.key)} pickHint={(r) => `Open ${r.label}'s profile`} />
+              <BarList rows={topList("imports_m")} onPick={(r) => onCompare(name, r.key)} pickHint={(r) => `Compare ${name} and ${r.label} in Two countries`} />
             ) : (
               <Empty />
             )}
@@ -321,7 +341,7 @@ function CountryTab({ givens: allGivens }) {
           <Card
             w={12}
             title={`The gravity model, live${gYear ? ` (${gYear})` : ""}`}
-            sub={`Each circle is a country that buys from ${name}; circle size = the partner's GDP. The grey line is the best power-law fit of exports on distance.`}
+            sub={`Each circle is a country that buys from ${name}; circle size = the partner's GDP. Point at a circle for its name and value. The grey line is the best power-law fit of exports on distance.`}
           >
             {fit && (
               <div className="tx-stat">

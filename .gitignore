@@ -15,3 +15,5 @@ malloy-config.json
 .DS_Store
 *.duckdb
 *.wal
+# Draft paper and teaching materials (not published with the site)
+paper/

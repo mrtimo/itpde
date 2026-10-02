@@ -50,6 +50,15 @@ export default function Dashboard({ givens }) {
     return () => clearTimeout(t);
   }, [ready]);
 
+  // "Compare" from the One country tab: open Two countries with A = that country, B = partner.
+  const A = useGiven("COUNTRY_A");
+  const B = useGiven("COUNTRY_B");
+  const compare = (a, b) => {
+    A.set(filters.oneOf(a));
+    B.set(filters.oneOf(b));
+    go("bilateral");
+  };
+
   const go = (id) => {
     setTab(id);
     window.scrollTo({ top: 0 });
@@ -78,7 +87,7 @@ export default function Dashboard({ givens }) {
       {TABS.map(({ id, Comp }) =>
         visited.has(id) ? (
           <div key={id} style={{ display: tab === id ? "block" : "none" }}>
-            <Comp givens={givens} />
+            <Comp givens={givens} onCompare={compare} />
           </div>
         ) : null,
       )}

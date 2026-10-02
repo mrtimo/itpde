@@ -3,7 +3,7 @@
 Interactive dashboards for undergraduate international-trade courses, built with
 [Malloy](https://www.malloydata.dev/) and [malloyyo](https://github.com/malloydata/malloyyo).
 
-**Live site:** https://mrtimo.github.io/itpde/
+**Live site:** https://tradeexplorer.org (mirror: https://mrtimo.github.io/itpde/)
 **Data:** https://huggingface.co/datasets/24601p/itpde (the site loads it from there)
 
 The explorer is one page with three tabs — *Two countries* (bilateral trade,
@@ -38,7 +38,7 @@ scripts/get_data.sh                 # ~150 MB from Hugging Face
 malloyyo dashboard dev              # http://localhost:4173/?d=trade
 ```
 
-To publish changes: `scripts/build_site.sh`, then commit and push `docs/`.
+To publish changes: `scripts/build_site.sh`, then `npx wrangler deploy` (Cloudflare, tradeexplorer.org; config in `wrangler.jsonc`) and commit and push `docs/` (GitHub Pages mirror).
 
 ## Data the site loads
 
