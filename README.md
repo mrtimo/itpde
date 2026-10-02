@@ -26,6 +26,7 @@ and each tab keeps its own filters while you move between tabs.
 | `dashboard_src/` | Dashboard UI source (shared kit + one file per tab) |
 | `scripts/get_data.sh` | Download the data from Hugging Face for local work |
 | `scripts/build_aggregates.sql` | Rebuild the small World-tab tables in `aggregates/` (run with `duckdb`) |
+| `site_assets/` | SEO and sharing: favicon, social preview image, robots.txt, sitemap.xml, and `seo.py` (meta tags, structured data, loading intro) |
 | `scripts/build_site.sh` | Build `docs/` (GitHub Pages) with data served from Hugging Face |
 | `docs/` | The published static site |
 

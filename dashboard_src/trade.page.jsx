@@ -27,6 +27,8 @@ const TAB_CSS = `
 .tx-tabs button.on{background:#fff;color:#0b1d33;font-weight:650}
 .tx-tabs button.on small{color:#52514e}
 .tx-tabs .status{margin-left:auto;font-size:12px;color:#9cc3f0;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.tx-tabs .source{margin-left:auto;font-size:12.5px;color:#c9d6e6;text-decoration:none;white-space:nowrap;padding:5px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06)}
+.tx-tabs .source:hover{color:#fff;background:rgba(255,255,255,.14)}
 .tx-tabs .spin{width:12px;height:12px;border-radius:50%;border:2px solid rgba(156,195,240,.35);border-top-color:#9cc3f0;animation:txspin .8s linear infinite}
 @keyframes txspin{to{transform:rotate(360deg)}}
 @media (max-width:760px){.tx-tabs{padding:8px 12px;overflow-x:auto}.tx-tabs button small{display:none}.tx-tabs .brand .name{font-size:13px}}
@@ -90,7 +92,11 @@ export default function Dashboard({ givens }) {
             <small>{t.hint}</small>
           </button>
         ))}
-        {!ready && (
+        {ready ? (
+          <a className="source" href="https://www.usitc.gov/data/gravity/gravity_portal_itpd_e" target="_blank" rel="noopener noreferrer">
+            Using ITPD-E data ↗
+          </a>
+        ) : (
           <span className="status">
             <span className="spin" />
             Loading trade data (first visit only)…

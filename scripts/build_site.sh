@@ -6,7 +6,8 @@
 #      into docs/ because the model reads local paths);
 #   2. we point the bundle's data map (window.__TABLE_FILES__) at the same
 #      files on Hugging Face and delete the local copies from docs/;
-#   3. the home page forwards straight to the explorer.
+#   3. site_assets/seo.py makes index.html the explorer itself and adds SEO
+#      metadata, structured data, a loading intro, robots.txt and sitemap.xml.
 #
 # The browser downloads each data file ONCE per visit (the trade table is the
 # 81 MB web copy on Hugging Face, not the 150 MB full table); the explorer is a single
@@ -47,12 +48,9 @@ for d in sorted({(docs / v).parent for v in files.values()}, reverse=True):
 # the explorer has its own tab bar; drop the one-link site nav and send / to it
 t = docs / "trade.html"
 t.write_text(re.sub(r'<nav class="dash-nav">.*?</nav>\n?', "", t.read_text(), flags=re.S))
-(docs / "index.html").write_text(
-    '<!doctype html><meta charset="utf-8"><title>International Trade Explorer</title>'
-    '<meta http-equiv="refresh" content="0; url=./trade.html">'
-    '<a href="./trade.html">International Trade Explorer</a>\n')
 print("data served from", base)
 for k, v in remote.items():
     print("  ", k, "->", v)
 PY
+python3 site_assets/seo.py   # titles, meta tags, structured data, intro, robots/sitemap
 du -sh docs
