@@ -39,6 +39,225 @@ function ols2(rows) {
   return { a: beta[0], bGdp: beta[1], bDist: beta[2], r2: sst > 0 ? 1 - ssr / sst : null, n };
 }
 
+// ── Trade with partners over time (One country tab) ──────────────────────────
+// Lines for a group of partners: top 10 / 11–20 / 21–30 overall, or the top 10
+// within a UN region. One hue for all lines (10 series is too many to tell apart
+// by color); the hovered partner is highlighted, others fade, and every line
+// carries a name label at its end. The side list doubles as a legend: hover a
+// name to highlight its line, click it to open Two countries for the pair.
+const PT_GROUPS = [
+  { id: "top10", label: "Top 10", lo: 0, hi: 10 },
+  { id: "top20", label: "11–20", lo: 10, hi: 20 },
+  { id: "top30", label: "21–30", lo: 20, hi: 30 },
+];
+const PT_REGIONS = ["Africa", "Americas", "Asia", "Europe", "Oceania"];
+const PT_MEASURES = [
+  { id: "total", label: "Two-way trade", pick: (r) => (r.exports_m || 0) + (r.imports_m || 0), tot: (t) => (t.exports_m || 0) + (t.imports_m || 0) },
+  { id: "exports", label: "Exports", pick: (r) => r.exports_m || 0, tot: (t) => t.exports_m || 0 },
+  { id: "imports", label: "Imports", pick: (r) => r.imports_m || 0, tot: (t) => t.imports_m || 0 },
+];
+
+const PT_CSS = `
+.pt-bar{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:2px 0 12px}
+.pt-seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px;background:var(--card)}
+.pt-seg button{font:inherit;font-size:12.5px;border:0;background:transparent;color:var(--ink2);padding:5px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.pt-seg button:hover{color:var(--ink);background:var(--chip)}
+.pt-seg button.on{background:var(--dash-accent);color:#fff;font-weight:600}
+.pt-lbl{font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.pt-wrap{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:18px;align-items:start}
+@media (max-width:900px){.pt-wrap{grid-template-columns:1fr}}
+.pt-list{display:flex;flex-direction:column;gap:2px}
+.pt-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 8px;border-radius:9px;cursor:pointer}
+.pt-row:hover,.pt-row.hl{background:var(--chip)}
+.pt-row .rk{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pt-row .nm{font-size:13.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt-row .vl{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums;text-align:right}
+.pt-row .sh{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:40px;text-align:right}
+.pt-note{font-size:11.5px;color:var(--muted);padding:6px 8px 0}
+`;
+
+function PartnerTrends({ rows, totals, name, p, onCompare, loading }) {
+  const [group, setGroup] = useUrlState("cpg", "top10");
+  const [measure, setMeasure] = useUrlState("cpm", "total");
+  const [scale, setScale] = useUrlState("cps", "usd");
+  const [hl, setHl] = useState("");
+  const M = PT_MEASURES.find((m) => m.id === measure) || PT_MEASURES[0];
+  const share = scale === "share";
+
+  const latest = latestYear(rows);
+  const first = firstYear(rows);
+  const totByYear = useMemo(() => new Map(totals.map((t) => [t.year, M.tot(t)])), [totals, M]);
+
+  // Rank partners by the chosen measure in the latest year, then pick the group.
+  const chosen = useMemo(() => {
+    const now = rows.filter((r) => r.year === latest && M.pick(r) > 0);
+    const pool = PT_REGIONS.includes(group) ? now.filter((r) => r.partner_region === group) : now;
+    const ranked = pool.sort((a, b) => M.pick(b) - M.pick(a));
+    const g = PT_GROUPS.find((x) => x.id === group);
+    const slice = g ? ranked.slice(g.lo, g.hi) : ranked.slice(0, 10);
+    const offset = g ? g.lo : 0;
+    const tot = totByYear.get(latest) || 0;
+    return slice.map((r, i) => ({ partner: r.partner, region: r.partner_region, rank: offset + i + 1, value: M.pick(r), sh: tot > 0 ? M.pick(r) / tot : null }));
+  }, [rows, latest, group, M, totByYear]);
+
+  const data = useMemo(() => {
+    const set = new Map(chosen.map((c) => [c.partner, c.rank]));
+    const out = [];
+    for (const r of rows) {
+      if (!set.has(r.partner)) continue;
+      const v = M.pick(r);
+      const tot = totByYear.get(r.year) || 0;
+      out.push({
+        year: r.year, partner: r.partner, rank: set.get(r.partner),
+        v: share ? (tot > 0 ? v / tot : null) : v / 1000,
+        hl: hl === r.partner, anyhl: !!hl,
+      });
+    }
+    const clean = out.filter((d) => d.v != null).sort((a, b) => a.rank - b.rank || a.year - b.year);
+    // End labels: one per partner at its last year, nudged apart so names never overlap.
+    const last = new Map();
+    for (const d of clean) if (!last.has(d.partner) || d.year > last.get(d.partner).year) last.set(d.partner, d);
+    const ends = [...last.values()].sort((a, b) => b.v - a.v);
+    const maxV = Math.max(...clean.map((d) => d.v), 0);
+    const gap = maxV * 0.05;
+    let prev = Infinity;
+    for (const e of ends) {
+      e.labelV = Math.min(e.v, prev - gap);
+      prev = e.labelV;
+    }
+    return clean;
+  }, [rows, chosen, M, share, hl, totByYear]);
+
+  const spec = useMemo(() => {
+    const valueTxt = share ? "format(datum.v, '.1%')" : bnText("v");
+    const flip = latest && first ? (first + latest) / 2 : 2012;
+    const on = (v, off) => ({ condition: [{ param: "lp", empty: false, value: v }, { test: "datum.hl", value: v }], value: off });
+    return {
+      height: 400,
+      config: vegaConfig(p),
+      encoding: {
+        x: { field: "year", type: "quantitative", title: null, axis: { format: "d", tickMinStep: 1 }, scale: { nice: false } },
+        y: { field: "v", type: "quantitative", title: null, axis: share ? { format: ".0%" } : { labelExpr: BN_LABEL } },
+      },
+      layer: [
+        {
+          mark: { type: "line", interpolate: "monotone", strokeCap: "round" },
+          encoding: {
+            detail: { field: "partner" },
+            color: on(p.B, p.A),
+            strokeWidth: on(3.5, 1.8),
+            opacity: { condition: [{ param: "lp", empty: false, value: 1 }, { test: "datum.hl", value: 1 }], value: { expr: "length(data('lp_store')) || datum.anyhl ? 0.18 : 0.7" } },
+          },
+        },
+        {
+          // Invisible hit targets: the nearest point picks the partner (and year).
+          params: [
+            { name: "lp", select: { type: "point", fields: ["partner"], nearest: true, on: "pointermove", clear: "pointerout" } },
+            { name: "ly", select: { type: "point", fields: ["partner", "year"], nearest: true, on: "pointermove", clear: "pointerout" } },
+          ],
+          mark: { type: "point", opacity: 0, size: 100 },
+        },
+        {
+          transform: [{ filter: { param: "ly", empty: false } }],
+          mark: { type: "point", filled: true, size: 80, color: p.B, stroke: p.surface, strokeWidth: 2 },
+        },
+        // End-of-line name labels (latest year).
+        {
+          transform: [{ filter: "isValid(datum.labelV)" }],
+          mark: { type: "text", align: "left", dx: 6, fontSize: 11, clip: false },
+          encoding: {
+            y: { field: "labelV", type: "quantitative" },
+            text: { field: "partner" },
+            color: on(p.ink, p.ink2),
+            fontWeight: { condition: [{ param: "lp", empty: false, value: 700 }, { test: "datum.hl", value: 700 }], value: 500 },
+            opacity: { condition: [{ param: "lp", empty: false, value: 1 }, { test: "datum.hl", value: 1 }], value: { expr: "length(data('lp_store')) || datum.anyhl ? 0.35 : 0.9" } },
+          },
+        },
+        // Hover readout: "Canada · $348B · 2023" (a halo pass, then the text).
+        ...[{ stroke: p.surface, strokeWidth: 5, strokeJoin: "round" }, {}].map((halo) => ({
+          transform: [{ filter: { param: "ly", empty: false } }, { calculate: `datum.partner + ' · ' + ${valueTxt} + ' · ' + datum.year`, as: "txt" }],
+          mark: {
+            type: "text", dy: -14, fontSize: 13, fontWeight: 700, color: p.ink, clip: true, ...halo,
+            align: { expr: `datum.year > ${flip} ? 'right' : 'left'` },
+            dx: { expr: `datum.year > ${flip} ? -10 : 10` },
+          },
+          encoding: { text: { field: "txt" } },
+        })),
+      ],
+    };
+  }, [p, share, latest, first]);
+
+  const groupLabel = PT_REGIONS.includes(group)
+    ? `top 10 partners in ${group}`
+    : group === "top10" ? "top 10 partners" : `partners ranked ${(PT_GROUPS.find((g) => g.id === group) || PT_GROUPS[0]).label}`;
+  const seg = (items, value, set) => (
+    <div className="pt-seg">
+      {items.map((it) => (
+        <button key={it.id} className={value === it.id ? "on" : ""} onClick={() => set(it.id)} aria-pressed={value === it.id}>
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <>
+      <style>{PT_CSS}</style>
+      <div className="pt-bar">
+        <span>
+          <span className="pt-lbl">Partners</span> {seg(PT_GROUPS, group, setGroup)}
+        </span>
+        <span>
+          <span className="pt-lbl">Region</span> {seg(PT_REGIONS.map((r) => ({ id: r, label: r })), group, setGroup)}
+        </span>
+        <span>
+          <span className="pt-lbl">Measure</span> {seg(PT_MEASURES, measure, setMeasure)}
+        </span>
+        <span>
+          <span className="pt-lbl">Show</span> {seg([{ id: "usd", label: "$ billions" }, { id: "share", label: `% of ${name}'s total` }], scale, setScale)}
+        </span>
+      </div>
+      {loading && !rows.length ? (
+        <Skel h={380} />
+      ) : !chosen.length ? (
+        <Empty>No partners with trade in this group for the selected years and filters.</Empty>
+      ) : (
+        <div className="pt-wrap">
+          <div onMouseLeave={() => setHl("")}>
+            <VegaChart spec={spec} data={data} />
+          </div>
+          <div className="pt-list" onMouseLeave={() => setHl("")}>
+            {chosen.map((c) => (
+              <div
+                key={c.partner}
+                className={`pt-row${hl === c.partner ? " hl" : ""}`}
+                onMouseEnter={() => setHl(c.partner)}
+                onClick={() => onCompare(name, c.partner)}
+                title={`Compare ${name} and ${c.partner} in Two countries`}
+              >
+                <span className="rk">{c.rank}</span>
+                <span className="nm" title={c.region}>
+                  {c.partner}
+                </span>
+                <span className="vl">{fmtUSD(c.value)}</span>
+                <span className="sh">{c.sh != null ? fmtPct(c.sh) : ""}</span>
+              </div>
+            ))}
+            <div className="pt-note">
+              {M.label} in {latest}, and share of {name}'s total. Click a name to compare the two countries.
+            </div>
+          </div>
+        </div>
+      )}
+      <Explain title="How to use this:">
+        Lines show {M.label.toLowerCase()} with {name}'s {groupLabel} (by {M.label.toLowerCase()} in {latest}). Point at a line (or a name on
+        the right) to highlight it; click a name to see what the two countries trade. Switch to <b>% of total</b> to see which
+        partners are gaining or losing ground rather than just growing with world trade.
+      </Explain>
+    </>
+  );
+}
+
 const C_KEYS = ['COUNTRY', 'C_SECTOR', 'C_INDUSTRY', 'C_YEAR_RANGE'];
 
 function CountryTab({ givens: allGivens, onCompare }) {
@@ -336,6 +555,14 @@ function CountryTab({ givens: allGivens, onCompare }) {
             ) : (
               <Empty />
             )}
+          </Card>
+
+          <Card
+            w={12}
+            title={`Trade with partners over time`}
+            sub={`How ${name}'s trade with its main partners has evolved · ${selection}. Pick a group of partners, a region, or a measure.`}
+          >
+            <PartnerTrends rows={partners.rows} totals={T} name={name} p={p} onCompare={onCompare} loading={partners.loading} />
           </Card>
 
           <Card
