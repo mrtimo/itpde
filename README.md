@@ -25,6 +25,7 @@ and each tab keeps its own filters while you move between tabs.
 | `dashboards/trade.jsx` | Generated dashboard component — edit `dashboard_src/`, then `python3 dashboard_src/build.py` |
 | `dashboard_src/` | Dashboard UI source (shared kit + one file per tab) |
 | `scripts/get_data.sh` | Download the data from Hugging Face for local work |
+| `scripts/update_itpde.py` | Refresh everything from a new ITPD-E release CSV (full + web parquet, lookups, aggregates; validates and prints follow-ups) |
 | `scripts/build_aggregates.sql` | Rebuild the small World-tab tables in `aggregates/` (run with `duckdb`) |
 | `site_assets/` | SEO and sharing: favicon, social preview image, robots.txt, sitemap.xml, and `seo.py` (meta tags, structured data, loading intro) |
 | `scripts/build_site.sh` | Build `docs/` (GitHub Pages) with data served from Hugging Face |
@@ -40,6 +41,21 @@ malloyyo dashboard dev              # http://localhost:4173/?d=trade
 ```
 
 To publish changes: `scripts/build_site.sh`, then `npx wrangler deploy` (Cloudflare, tradeexplorer.org; config in `wrangler.jsonc`) and commit and push `docs/` (GitHub Pages mirror).
+
+## Updating to a new ITPD-E release
+
+USITC publishes a new ITPD-E release about every two years. Download the CSV from
+the [ITPD-E portal](https://www.usitc.gov/data/gravity/gravity_portal_itpd_e), then:
+
+```bash
+scripts/get_data.sh                                    # current lookups (once)
+python3 scripts/update_itpde.py --source path/to/ITPD_E_RXXXX.csv --upload
+scripts/build_site.sh && npx wrangler deploy
+```
+
+The script writes drop-in replacements (same filenames and columns), checks the
+data, and prints anything that needs a manual follow-up (new year range, new
+country codes, the domestic-data cut-off).
 
 ## Data the site loads
 
