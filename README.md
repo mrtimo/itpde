@@ -27,7 +27,7 @@ and each tab keeps its own filters while you move between tabs.
 | `scripts/get_data.sh` | Download the data from Hugging Face for local work |
 | `scripts/update_itpde.py` | Refresh everything from a new ITPD-E release CSV (full + web parquet, lookups, aggregates; validates and prints follow-ups) |
 | `scripts/build_aggregates.sql` | Rebuild the small World-tab tables in `aggregates/` (run with `duckdb`) |
-| `site_assets/` | SEO and sharing: favicon, social preview image, robots.txt, sitemap.xml, and `seo.py` (meta tags, structured data, loading intro) |
+| `site_assets/` | SEO and sharing (favicon, preview image, robots.txt, sitemap.xml, `seo.py`) and `boot.js`: readable share links and browser-cached data |
 | `scripts/build_site.sh` | Build `docs/` (GitHub Pages) with data served from Hugging Face |
 | `docs/` | The published static site |
 
@@ -57,13 +57,26 @@ The script writes drop-in replacements (same filenames and columns), checks the
 data, and prints anything that needs a manual follow-up (new year range, new
 country codes, the domestic-data cut-off).
 
+## Share links
+
+The address bar always describes the current view in plain words, e.g.
+`https://tradeexplorer.org/?a=Germany&b=France&years=2010-2023` or
+`?tab=country&country=Vietnam&partners=top20&show=share`. Filters at their default
+are left out. Public names: `a`, `b`, `sector`, `industry`, `years` (Two countries);
+`country`, `country_sector`, `country_industry`, `country_years` (One country);
+`world_sector`, `world_industry`, `world_years` (The world); view settings `tab`,
+`partners`, `measure`, `show`. `site_assets/boot.js` translates these to and from
+the malloyyo runtime's internal `$NAME` / `~key` form.
+
 ## Data the site loads
 
 The live site downloads `web/ITPD_E_R2025_web.parquet` (81 MB) from Hugging Face
 instead of the full 150 MB table: positive flows only, `trade` rounded to the
 nearest $1,000 (values under $1,000 kept exact), and the unused `flag_mirror` /
 name columns left empty. Local development (`scripts/get_data.sh`) uses the full
-table.
+table. The browser starts these downloads immediately and keeps them in Cache
+Storage, keyed by each file's Hugging Face version, so later visits and other tabs
+read them locally; a file is downloaded again only when it changes.
 
 ## Data notes
 

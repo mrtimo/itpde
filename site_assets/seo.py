@@ -7,6 +7,7 @@
 - A real, readable intro inside #root that doubles as the loading screen;
   React replaces it as soon as the app mounts.
 - robots.txt, sitemap.xml, favicon, social preview image.
+- boot.js: readable share links and browser-cached data (see that file).
 """
 import html, json, pathlib, re, shutil, sys
 
@@ -96,8 +97,15 @@ intro = f"""<main class="seo-intro"><div class="wrap">
 <p>Built on the U.S. International Trade Commission's <a href="{ITPDE}">International Trade and Production Database for Estimation (ITPD-E)</a>, release 2025: 87.5 million exporter–importer–industry–year flows for 170 industries, 1986–2023, linked to the USITC Dynamic Gravity Dataset, World Bank income groups and UN regions. Data: <a href="https://huggingface.co/datasets/24601p/itpde">Hugging Face</a> · Code: <a href="https://github.com/mrtimo/itpde">GitHub</a>.</p>
 </div></main>"""
 
+BOOT_JS = (assets / "boot.js").read_text()
+
+
 def seo_page(src: str) -> str:
     s = re.sub(r"<title>.*?</title>", f"<title>{html.escape(TITLE)}</title>", src, count=1, flags=re.S)
+    # Readable links + data cache: must run after model-files.js (data map) and before the runtime.
+    anchor = '<script type="module" src="./assets/trade.js"></script>'
+    assert anchor in s, "runtime script tag not found"
+    s = s.replace(anchor, f"<script>\n{BOOT_JS}</script>\n" + anchor, 1)
     s = s.replace("</head>", head + "</head>", 1)
     s = s.replace('<div id="root"></div>', f'<div id="root">{intro}</div>', 1)
     return s
@@ -106,18 +114,6 @@ app = (docs / "trade.html").read_text()
 page = seo_page(app)
 (docs / "index.html").write_text(page)   # the home page is the explorer itself
 (docs / "trade.html").write_text(page)   # old links keep working; canonical points to /
-# Keep the explorer's shareable links on the root URL (tradeexplorer.org/?...)
-# instead of /trade.html?... — the runtime builds them as `./<dashboard>.html`.
-js = docs / "assets" / "trade.js"
-code = js.read_text()
-pat = re.compile(r"new URL\(`\./\$\{(\w+)\}\.html`,document\.baseURI\)")
-if pat.search(code):
-    code = pat.sub(lambda m: f'new URL({m.group(1)}==="trade"?"./":`./${{{m.group(1)}}}.html`,document.baseURI)', code)
-    js.write_text(code)
-    print("SEO: share links now use the root URL")
-else:
-    print("SEO WARNING: runtime URL pattern not found; links will use /trade.html", file=sys.stderr)
-
 for name in ["favicon.svg", "robots.txt", "sitemap.xml", "og-image.png"]:
     if (assets / name).exists():
         shutil.copy(assets / name, docs / name)
